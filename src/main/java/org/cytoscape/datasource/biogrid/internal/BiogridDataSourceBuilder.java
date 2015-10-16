@@ -30,16 +30,15 @@ import java.util.Properties;
 import java.util.Set;
 
 import org.cytoscape.io.datasource.DataSource;
-import org.cytoscape.property.CyProperty;
 import org.osgi.framework.BundleContext;
 
-public class BioGridDataSoruceBuilder {
+public class BiogridDataSourceBuilder {
 	
-	public BioGridDataSoruceBuilder(final BundleContext bc, final File settingFileLocation, final CyProperty prop) {
-		BiogridDataLoader task = new BiogridDataLoader(prop, settingFileLocation);
+	public BiogridDataSourceBuilder(final BundleContext bc, final File cytoscapeInstallationDir) {
+		BiogridDataLoader task = new BiogridDataLoader(cytoscapeInstallationDir);
 		
 		try {
-			task.extract();
+			task.processFiles();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

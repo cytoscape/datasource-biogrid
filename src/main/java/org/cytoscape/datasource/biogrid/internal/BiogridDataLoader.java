@@ -24,26 +24,16 @@ package org.cytoscape.datasource.biogrid.internal;
  * #L%
  */
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 import org.cytoscape.io.DataCategory;
 import org.cytoscape.io.datasource.DataSource;
 import org.cytoscape.io.datasource.DefaultDataSource;
-import org.cytoscape.property.CyProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,18 +41,9 @@ public class BiogridDataLoader {
 
 	private static final Logger logger = LoggerFactory.getLogger(BiogridDataLoader.class);
 
-	private static final String FILE_LOCATION = "biogrid.file.url";
-	private static final String TAG = "<meta>preset,interactome</meta>"; 
-	
-	// Default resource file location.
-	private static final String DEF_RESOURCE = "biogrid/BIOGRID-ORGANISM-LATEST.mitab.zip";
-	
-	// Remote URL for the latest release
-
-	public final static int BUF_SIZE = 1024;
-	private static final String LOCAL = "biogrid";
-	private URL source;
-	private File localFile;
+	private static final String TAG = "<meta>preset,interactome</meta>";
+	private static final String SAMPLE_DATA_DIR = "sampleData";
+	private File dataDir;
 	
 	private String version = null;
 
@@ -80,33 +61,9 @@ public class BiogridDataLoader {
 		FILTER.put("Danio_rerio", new String[]{"D. rerio", "BioGRID", "Zebrafish Interactome from BioGRID database"});
 	}
 
-	public BiogridDataLoader(final CyProperty<?> props, final File settingFileLocation) {
-		this(props, null, settingFileLocation);
-	}
-
-
-	public BiogridDataLoader(final CyProperty<?> props, final URL dataSource, final File settingFileLocation) {
-		// First priority: optional URL props.
-		final Properties propObject = (Properties) props.getProperties();
-		final String locationString = propObject.getProperty(FILE_LOCATION);
-
-		if(locationString != null && dataSource == null) {
-			try {
-				source = new URL(locationString);
-			} catch (MalformedURLException e) {
-				source = null;
-			}
-		} else if(dataSource == null) {
-			source = this.getClass().getClassLoader().getResource(DEF_RESOURCE);
-		} else {
-			this.source = dataSource;
-		}
-		
+	public BiogridDataLoader(final File cytoscapeInstallationDir) {
 		this.sources = new HashSet<DataSource>();
-		
-		localFile = new File(settingFileLocation, LOCAL);
-		if (localFile.exists() == false)
-			localFile.mkdir();
+		this.dataDir = new File(cytoscapeInstallationDir, SAMPLE_DATA_DIR);
 	}
 
 	public void extractVersionNumber(final String fileName) {
@@ -121,7 +78,7 @@ public class BiogridDataLoader {
 				version = nextPart[0];
 		}
 		
-		logger.info("BioGRID relese version is: " + version);
+		logger.info("BioGRID release version is: " + version);
 	}
 	
 	/**
@@ -130,8 +87,8 @@ public class BiogridDataLoader {
 	 * @return true if files are already exists.
 	 */
 	private boolean isExist() {
-		if(localFile.isDirectory()) {
-			final String[] fileNames = localFile.list();
+		if(dataDir.isDirectory()) {
+			final String[] fileNames = dataDir.list();
 			if(fileNames == null || fileNames.length == 0)
 				return false;
 			else {
@@ -140,97 +97,29 @@ public class BiogridDataLoader {
 						return true;
 				}
 			}
-		} else {
-			throw new IllegalStateException("given location is not a directory.");
 		}
-		
 		return false;
 	}
 
 
-	public void extract() throws IOException {
-		this.extract(false);
-	}
-	/**
-	 * Extract list of files from resource (local or remote)
-	 * 
-	 * @throws IOException
-	 */
-	public void extract(final boolean forceUpdate) throws IOException {
-		if(isExist() && forceUpdate == false) {
-			logger.info("Local network data file exists.  Processing local files...");
-			processExistingFiles();
+	public void processFiles() throws IOException {
+		if(!isExist())
 			return;
-		}
-		
-		ZipInputStream zis = new ZipInputStream(source.openStream());
-		try {
-			// Extract list of entries
-			ZipEntry zen = null;
-			String entryName = null;
-
-			while ((zen = zis.getNextEntry()) != null) {
-				entryName = zen.getName();
-				// Remove .txt
-				String newName = entryName.replace(".txt", "");
-				logger.info("* Processing new organism data file: " + newName);
-				
-				final String[] data = createName(newName);
-				if (data==null)
-					continue;
-
-				File outFile = new File(localFile, newName);
-				if(version == null) {
-					extractVersionNumber(newName);
-				}
-				
-				processOneEntry(outFile, zis);
-				zis.closeEntry();
-				
-				final DataSource ds = new DefaultDataSource(data[0], data[1], TAG + data[2] + " Release " + version, DataCategory.NETWORK, outFile.toURI().toURL());
-				sources.add(ds);
-			}
-
-		} finally {
-			if (zis != null)
-				zis.close();
-			zis = null;
-		}
-	}
-
-
-	private void processExistingFiles() throws IOException {
 		// Just need to create from existing files.
-		final File[] dataFiles = localFile.listFiles();
+		final File[] dataFiles = dataDir.listFiles();
 
 		for (File file : dataFiles) {
+			final String[] data = createName(file.getName());
+			if(data == null) continue;
 			logger.info("* Processing local organism network file: " + file.getName());
 			if(version == null) {
 				extractVersionNumber(file.getName());
 			}
-			final String[] data = createName(file.getName());
 			final DataSource ds = new DefaultDataSource(
 					data[0], data[1], TAG + data[2] + " Release " + version, DataCategory.NETWORK, file.toURI().toURL());
 			sources.add(ds);
 		}
 		return;
-	}
-
-
-	private void processOneEntry(File outFile, InputStream is) throws IOException {
-		outFile.createNewFile();
-		FileWriter outWriter = new FileWriter(outFile);
-		String line;
-		final BufferedReader br = new BufferedReader(new InputStreamReader(is));
-
-		int count = 0;
-		while ((line = br.readLine()) != null) {
-			if (line.startsWith("#"))
-				continue;
-			outWriter.write(line + "\n");
-			count++;
-		}
-		outWriter.close();
 	}
 
 	private String[] createName(String name) {
