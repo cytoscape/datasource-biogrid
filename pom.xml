@@ -18,7 +18,7 @@
 	<groupId>org.cytoscape</groupId>
 	<artifactId>datasource-biogrid</artifactId>
 	<version>3.3.0-SNAPSHOT</version>
-	<name>Cytoscape BioGrid Datasource (${project.artifactId})</name>
+	<name>BioGRID Data Source</name>
 	<packaging>bundle</packaging>
 
 	<scm>
