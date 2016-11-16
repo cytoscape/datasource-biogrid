@@ -17,7 +17,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.cytoscape</groupId>
 	<artifactId>datasource-biogrid</artifactId>
-	<version>3.3.1-SNAPSHOT</version>
+	<version>3.3.1</version>
 	<name>BioGRID Data Source</name>
 	<packaging>bundle</packaging>
 
